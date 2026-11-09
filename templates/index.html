@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Financial Risk Review Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+<body>
+  <header>
+    <h1>Financial Risk Review Dashboard</h1>
+    <p>Flagged transactions are flagged for review, not confirmed fraud.</p>
+           {% include "_nav.html" %}
+  </header>
+    <main>
+    <div class="cards">
+      <div class="card"><h2 id="total">-</h2><p>Total alerts</p></div>
+      <div class="card"><h2 id="high">-</h2><p>HIGH</p></div>
+      <div class="card"><h2 id="medium">-</h2><p>MEDIUM</p></div>
+      <div class="card"><h2 id="pending">-</h2><p>Pending review</p></div>
+    </div>
+            <div class="charts">
+      <div class="chart-box"><h3>Alerts by risk level</h3><canvas id="levelChart"></canvas></div>
+      <div class="chart-box"><h3>Alerts by review status</h3><canvas id="statusChart"></canvas></div>
+      <div class="chart-box wide"><h3>Alerts per day</h3><canvas id="trendChart"></canvas></div>
+    </div>
+  </main>
+    <script src="{{ url_for('static', filename='chart.min.js') }}"></script>
+  <script>
+    async function loadSummary() {
+      const res = await fetch("/reports/risk-distribution");
+      const data = await res.json();
+      let high = 0, medium = 0, total = 0, pending = 0;
+      data.by_level.forEach(r => {
+        if (r.risk_level === "HIGH") high = r.alerts;
+        if (r.risk_level === "MEDIUM") medium = r.alerts;
+        total += r.alerts;
+      });
+      data.by_status.forEach(r => {
+        if (r.review_status === "PENDING") pending = r.alerts;
+      });
+      document.getElementById("total").textContent = total;
+      document.getElementById("high").textContent = high;
+      document.getElementById("medium").textContent = medium;
+      document.getElementById("pending").textContent = pending;
+    }
+    loadSummary();
+        async function drawCharts() {
+      const dist = await (await fetch("/reports/risk-distribution")).json();
+      const trend = await (await fetch("/reports/alert-trends")).json();
+
+      new Chart(document.getElementById("levelChart"), {
+        type: "doughnut",
+        data: {
+          labels: dist.by_level.map(r => r.risk_level),
+          datasets: [{
+            data: dist.by_level.map(r => r.alerts),
+            backgroundColor: dist.by_level.map(r => r.risk_level === "HIGH" ? "#c62828" : "#ef6c00")
+          }]
+        },
+        options: { plugins: { legend: { position: "bottom" } } }
+      });
+
+      new Chart(document.getElementById("statusChart"), {
+        type: "bar",
+        data: {
+          labels: dist.by_status.map(r => r.review_status),
+          datasets: [{
+            label: "Alerts",
+            data: dist.by_status.map(r => r.alerts),
+            backgroundColor: "#2f5fd0",
+            borderRadius: 6
+          }]
+        },
+        options: { plugins: { legend: { display: false } } }
+      });
+
+      new Chart(document.getElementById("trendChart"), {
+        type: "line",
+        data: {
+          labels: trend.map(r => r.alert_date),
+          datasets: [{
+            label: "Alerts",
+            data: trend.map(r => r.alerts),
+            borderColor: "#2f5fd0",
+            backgroundColor: "rgba(47, 95, 208, 0.15)",
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: { plugins: { legend: { display: false } } }
+      });
+    }
+    drawCharts();
+  </script>
+</body>
+</html>

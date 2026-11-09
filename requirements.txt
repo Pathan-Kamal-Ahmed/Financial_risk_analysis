@@ -1,0 +1,8 @@
+flask
+pandas
+numpy
+matplotlib
+sqlalchemy
+pymysql
+cryptography
+python-dotenv
